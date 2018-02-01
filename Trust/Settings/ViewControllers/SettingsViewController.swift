@@ -60,8 +60,9 @@ class SettingsViewController: FormViewController {
                 selectorController.enableDeselection = false
                 selectorController.sectionKeyForValue = { option in
                     switch option {
-                    case .main, .classic, .poa: return ""
-                    case .kovan, .ropsten, .rinkeby, .sokol: return NSLocalizedString("settings.network.test.label.title", value: "Test", comment: "")
+                    case .main: return ""
+//                    , .classic, .poa: return ""
+//                    case .kovan, .ropsten, .rinkeby, .sokol: return NSLocalizedString("settings.network.test.label.title", value: "Test", comment: "")
                     }
                 }
             }.cellSetup { cell, _ in
