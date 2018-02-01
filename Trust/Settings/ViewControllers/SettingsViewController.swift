@@ -61,8 +61,6 @@ class SettingsViewController: FormViewController {
                 selectorController.sectionKeyForValue = { option in
                     switch option {
                     case .main: return ""
-//                    , .classic, .poa: return ""
-//                    case .kovan, .ropsten, .rinkeby, .sokol: return NSLocalizedString("settings.network.test.label.title", value: "Test", comment: "")
                     }
                 }
             }.cellSetup { cell, _ in
