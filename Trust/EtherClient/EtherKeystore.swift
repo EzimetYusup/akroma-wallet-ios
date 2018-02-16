@@ -40,17 +40,17 @@ open class EtherKeystore: Keystore {
     var hasWallets: Bool {
         return !wallets.isEmpty
     }
-    private var nickNamesByAddress:[String:String]{
+    private var nickNamesByAddress: [String: String] {
         set {
             let data = NSKeyedArchiver.archivedData(withRootObject: newValue)
             keychain.set(data, forKey: Keys.nickNames)
         }
         get {
             guard let data = keychain.getData(Keys.nickNames) else { return [:] }
-            return NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:String] ?? [:]
+            return NSKeyedUnarchiver.unarchiveObject(with: data) as? [String: String] ?? [:]
         }
     }
-    
+
     private var watchAddresses: [String] {
         set {
             let data = NSKeyedArchiver.archivedData(withRootObject: newValue)
@@ -85,7 +85,7 @@ open class EtherKeystore: Keystore {
     func createAccount(with password: String, nickName: String, completion: @escaping (Result<Account, KeystoreError>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let account = self.createAccout(password: password)
-            DispatchQueue.main.async {[weak self,nickName] in
+            DispatchQueue.main.async {[weak self, nickName] in
                 self?.nickNamesByAddress[account.address.description] = nickName
                 completion(.success(account))
             }
