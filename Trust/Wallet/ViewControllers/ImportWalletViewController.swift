@@ -22,6 +22,8 @@ class ImportWalletViewController: FormViewController {
         static let password = "password"
         static let watch = "watch"
         static let mnemonic = "mnemonic"
+        static let nickName = "nickName"
+        
     }
 
     var segmentRow: SegmentedRow<String>? {
@@ -46,6 +48,10 @@ class ImportWalletViewController: FormViewController {
 
     var watchRow: TextFloatLabelRow? {
         return form.rowBy(tag: Values.watch)
+    }
+    
+    var nickNameRow: TextFloatLabelRow? {
+        return form.rowBy(tag: Values.nickName)
     }
 
     weak var delegate: ImportWalletViewControllerDelegate?
@@ -149,6 +155,12 @@ class ImportWalletViewController: FormViewController {
                 cell.textField.placeholder = NSLocalizedString("Password", value: "Password", comment: "")
             }
 
+            <<< AppFormAppearance.textFieldFloat(tag: Values.nickName) {
+                $0.add(rule: RuleRequired())
+            }.cellUpdate { cell, _ in
+                cell.textField.placeholder = "Give a Nick name"
+            }
+
             +++ Section("")
 
             <<< ButtonRow(NSLocalizedString("importWallet.import.button.title", value: "Import", comment: "")) {
@@ -172,25 +184,26 @@ class ImportWalletViewController: FormViewController {
         let watchInput = watchRow?.value?.trimmed ?? ""
         let mnemonicInput = mnemonicRow?.value?.trimmed ?? ""
         let words = mnemonicInput.components(separatedBy: " ").map { $0.trimmed }
-
+        let nickName = nickNameRow?.value?.trimmed  ?? ""
+        
         displayLoading(text: NSLocalizedString("importWallet.importingIndicator.label.title", value: "Importing wallet...", comment: ""), animated: false)
 
         let type = ImportSelectionType(title: segmentRow?.value)
         let importType: ImportType = {
             switch type {
             case .keystore:
-                return .keystore(string: keystoreInput, password: password)
+                return .keystore(string: keystoreInput, password: password, nickName:nickName)
             case .privateKey:
-                return .privateKey(privateKey: privateKeyInput)
+                return .privateKey(privateKey: privateKeyInput, nickName:nickName)
             case .mnemonic:
-                return .mnemonic(words: words, password: password)
+                return .mnemonic(words: words, password: password, nickName:nickName)
             case .watch:
                 let address = Address(string: watchInput)! // Address validated by form view.
-                return .watch(address: address)
+                return .watch(address: address, nickName:nickName)
             }
         }()
 
-        keystore.importWallet(type: importType) { result in
+        keystore.importWallet(type: importType, nickName: nickName) { result in
             self.hideLoading(animated: false)
             switch result {
             case .success(let account):
@@ -203,7 +216,7 @@ class ImportWalletViewController: FormViewController {
 
     @objc func demo() {
         //Used for taking screenshots to the App Store by snapshot
-        let demoWallet = Wallet(type: .watch(Address(string: "0xD663bE6b87A992C5245F054D32C7f5e99f5aCc47")!))
+        let demoWallet = Wallet(type: .watch(Address(string: "0xD663bE6b87A992C5245F054D32C7f5e99f5aCc47")!),nickName: "")
         delegate?.didImportAccount(account: demoWallet, in: self)
     }
 

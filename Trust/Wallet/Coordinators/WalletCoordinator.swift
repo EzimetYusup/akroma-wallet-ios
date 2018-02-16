@@ -53,7 +53,7 @@ class WalletCoordinator: Coordinator {
     func createInstantWallet() {
         navigationController.displayLoading(text: "Creating wallet...", animated: false)
         let password = PasswordGenerator.generateRandom()
-        keystore.createAccount(with: password) { result in
+        keystore.createAccount(with: password, nickName: "") { result in
             switch result {
             case .success(let account):
                 self.pushBackup(for: account)
@@ -122,6 +122,6 @@ extension WalletCoordinator: BackupCoordinatorDelegate {
 
     func didFinish(account: Account, in coordinator: BackupCoordinator) {
         removeCoordinator(coordinator)
-        didCreateAccount(account: Wallet(type: .real(account)))
+        didCreateAccount(account: Wallet(type: .real(account), nickName: ""))
     }
 }
