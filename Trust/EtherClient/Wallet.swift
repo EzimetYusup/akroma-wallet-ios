@@ -24,7 +24,7 @@ extension WalletType: Equatable {
 
 struct Wallet {
     let type: WalletType
-
+    let nickName: String
     var address: Address {
         switch type {
         case .real(let account):

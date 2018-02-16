@@ -15,6 +15,7 @@ open class EtherKeystore: Keystore {
     struct Keys {
         static let recentlyUsedAddress: String = "recentlyUsedAddress"
         static let watchAddresses = "watchAddresses"
+        static let nickNames = "nickNames"
     }
 
     private let keychain: KeychainSwift
@@ -39,7 +40,17 @@ open class EtherKeystore: Keystore {
     var hasWallets: Bool {
         return !wallets.isEmpty
     }
-
+    private var nickNamesByAddress:[String:String]{
+        set {
+            let data = NSKeyedArchiver.archivedData(withRootObject: newValue)
+            keychain.set(data, forKey: Keys.nickNames)
+        }
+        get {
+            guard let data = keychain.getData(Keys.nickNames) else { return [:] }
+            return NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:String] ?? [:]
+        }
+    }
+    
     private var watchAddresses: [String] {
         set {
             let data = NSKeyedArchiver.archivedData(withRootObject: newValue)
@@ -71,43 +82,47 @@ open class EtherKeystore: Keystore {
 
     // Async
     @available(iOS 10.0, *)
-    func createAccount(with password: String, completion: @escaping (Result<Account, KeystoreError>) -> Void) {
+    func createAccount(with password: String, nickName: String, completion: @escaping (Result<Account, KeystoreError>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let account = self.createAccout(password: password)
-            DispatchQueue.main.async {
+            DispatchQueue.main.async {[weak self,nickName] in
+                self?.nickNamesByAddress[account.address.description] = nickName
                 completion(.success(account))
             }
         }
     }
 
-    func importWallet(type: ImportType, completion: @escaping (Result<Wallet, KeystoreError>) -> Void) {
+    func importWallet(type: ImportType, nickName: String, completion: @escaping (Result<Wallet, KeystoreError>) -> Void) {
         let newPassword = PasswordGenerator.generateRandom()
         switch type {
-        case .keystore(let string, let password):
+
+        case .keystore(let string, let password, let nickName):
             importKeystore(
                 value: string,
                 password: password,
-                newPassword: newPassword
+                newPassword: newPassword,
+                nickName: nickName
             ) { result in
                 switch result {
                 case .success(let account):
-                    completion(.success(Wallet(type: .real(account))))
+                    completion(.success(Wallet(type: .real(account), nickName: nickName)))
                 case .failure(let error):
                     completion(.failure(error))
                 }
             }
-        case .privateKey(let privateKey):
-            keystore(for: privateKey, password: newPassword) { result in
+        case .privateKey(let privateKey, let nickName):
+            keystore(for: privateKey, password: newPassword, nickName: nickName) { result in
                 switch result {
                 case .success(let value):
                     self.importKeystore(
                         value: value,
                         password: newPassword,
-                        newPassword: newPassword
+                        newPassword: newPassword,
+                        nickName: nickName
                     ) { result in
                         switch result {
                         case .success(let account):
-                            completion(.success(Wallet(type: .real(account))))
+                            completion(.success(Wallet(type: .real(account), nickName: nickName)))
                         case .failure(let error):
                             completion(.failure(error))
                         }
@@ -119,17 +134,18 @@ open class EtherKeystore: Keystore {
         case .mnemonic:
             let key = ""
             // TODO: Implement it
-            keystore(for: key, password: newPassword) { result in
+            keystore(for: key, password: newPassword, nickName: "") { result in
                 switch result {
                 case .success(let value):
                     self.importKeystore(
                         value: value,
                         password: newPassword,
-                        newPassword: newPassword
+                        newPassword: newPassword,
+                        nickName: ""
                     ) { result in
                         switch result {
                         case .success(let account):
-                            completion(.success(Wallet(type: .real(account))))
+                            completion(.success(Wallet(type: .real(account), nickName: "")))
                         case .failure(let error):
                             completion(.failure(error))
                         }
@@ -138,13 +154,14 @@ open class EtherKeystore: Keystore {
                     completion(.failure(error))
                 }
             }
-        case .watch(let address):
+        case .watch(let address, let nickName):
             self.watchAddresses = [watchAddresses, [address.description]].flatMap { $0 }
-            completion(.success(Wallet(type: .watch(address))))
+            nickNamesByAddress[address.description] = nickName
+            completion(.success(Wallet(type: .watch(address), nickName: nickName)))
         }
     }
 
-    func keystore(for privateKey: String, password: String, completion: @escaping (Result<String, KeystoreError>) -> Void) {
+    func keystore(for privateKey: String, password: String, nickName: String, completion: @escaping (Result<String, KeystoreError>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let keystore = self.convertPrivateKeyToKeystoreFile(
                 privateKey: privateKey,
@@ -161,9 +178,9 @@ open class EtherKeystore: Keystore {
         }
     }
 
-    func importKeystore(value: String, password: String, newPassword: String, completion: @escaping (Result<Account, KeystoreError>) -> Void) {
+    func importKeystore(value: String, password: String, newPassword: String, nickName: String, completion: @escaping (Result<Account, KeystoreError>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = self.importKeystore(value: value, password: password, newPassword: newPassword)
+            let result = self.importKeystore(value: value, password: password, newPassword: newPassword, nickName: nickName)
             DispatchQueue.main.async {
                 switch result {
                 case .success(let account):
@@ -181,13 +198,14 @@ open class EtherKeystore: Keystore {
         return account
     }
 
-    func importKeystore(value: String, password: String, newPassword: String) -> Result<Account, KeystoreError> {
+    func importKeystore(value: String, password: String, newPassword: String, nickName: String) -> Result<Account, KeystoreError> {
         guard let data = value.data(using: .utf8) else {
             return (.failure(.failedToParseJSON))
         }
         do {
             let account = try keyStore.import(json: data, password: password, newPassword: newPassword)
             let _ = setPassword(newPassword, for: account)
+            nickNamesByAddress[account.address.description] = nickName
             return .success(account)
         } catch {
             if case KeyStore.Error.accountAlreadyExists = error {
@@ -201,8 +219,8 @@ open class EtherKeystore: Keystore {
     var wallets: [Wallet] {
         let addresses = watchAddresses.flatMap { Address(string: $0) }
         return [
-            keyStore.accounts.map { Wallet(type: .real($0)) },
-            addresses.map { Wallet(type: .watch($0)) },
+            keyStore.accounts.map { Wallet(type: .real($0), nickName: nickNamesByAddress[$0.address.description] ?? "") },
+            addresses.map { Wallet(type: .watch($0), nickName: nickNamesByAddress[$0.description] ?? "") },
         ].flatMap { $0 }
     }
 
