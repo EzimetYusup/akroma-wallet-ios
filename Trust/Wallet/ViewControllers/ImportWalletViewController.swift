@@ -23,7 +23,6 @@ class ImportWalletViewController: FormViewController {
         static let watch = "watch"
         static let mnemonic = "mnemonic"
         static let nickName = "nickName"
-        
     }
 
     var segmentRow: SegmentedRow<String>? {
@@ -49,7 +48,7 @@ class ImportWalletViewController: FormViewController {
     var watchRow: TextFloatLabelRow? {
         return form.rowBy(tag: Values.watch)
     }
-    
+
     var nickNameRow: TextFloatLabelRow? {
         return form.rowBy(tag: Values.nickName)
     }
@@ -185,7 +184,7 @@ class ImportWalletViewController: FormViewController {
         let mnemonicInput = mnemonicRow?.value?.trimmed ?? ""
         let words = mnemonicInput.components(separatedBy: " ").map { $0.trimmed }
         let nickName = nickNameRow?.value?.trimmed  ?? ""
-        
+
         displayLoading(text: NSLocalizedString("importWallet.importingIndicator.label.title", value: "Importing wallet...", comment: ""), animated: false)
 
         let type = ImportSelectionType(title: segmentRow?.value)
@@ -216,7 +215,7 @@ class ImportWalletViewController: FormViewController {
 
     @objc func demo() {
         //Used for taking screenshots to the App Store by snapshot
-        let demoWallet = Wallet(type: .watch(Address(string: "0xD663bE6b87A992C5245F054D32C7f5e99f5aCc47")!),nickName: "")
+        let demoWallet = Wallet(type: .watch(Address(string: "0xD663bE6b87A992C5245F054D32C7f5e99f5aCc47")!), nickName: "demo")
         delegate?.didImportAccount(account: demoWallet, in: self)
     }
 
